@@ -311,7 +311,7 @@ const WebEditorPage = () => {
         if (!soundEnabledRef.current || !soundBuffer) return;
         try {
             const [startTime, duration] = SOUND_EFFECTS[soundName] || SOUND_EFFECTS.default;
-            playCherry(Number(startTime), duration);
+            playCherry(Number(startTime), Number(duration));
         } catch (err) {
             console.error("Error playing sound effect:", err);
         }
