@@ -1,18 +1,25 @@
 'use client';
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import THEMES from './Themes';
 
 interface CodeRunnerProps {
     code: string;
     theme?: keyof typeof THEMES;
+    onRun?: () => void;
+    onError?: () => void;
+    onSuccess?: () => void;
 }
 
 const CodeRunner: React.FC<CodeRunnerProps> = ({
     code,
-    theme = 'dark'
+    theme = 'dark',
+    onRun,
+    onError,
+    onSuccess
 }) => {
-    const [output, setOutput] = useState<string[]>([]);
+    const [output, setOutput] = useState<{ text: string; timestamp: string }[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [isRunning, setIsRunning] = useState(false);
 
@@ -20,24 +27,31 @@ const CodeRunner: React.FC<CodeRunnerProps> = ({
 
     const runCode = () => {
         setIsRunning(true);
+        onRun?.();
+
         try {
             setOutput([]);
             setError(null);
 
-            const logs: string[] = [];
+            const logs: { text: string; timestamp: string }[] = [];
             const customConsole = {
                 log: (...args: any[]) => {
-                    logs.push(args.map(arg =>
-                        typeof arg === 'object'
-                            ? JSON.stringify(arg, null, 2)
-                            : String(arg)
-                    ).join(' '));
+                    logs.push({
+                        text: args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' '),
+                        timestamp: new Date().toLocaleTimeString()
+                    });
                 },
                 warn: (...args: any[]) => {
-                    logs.push(`⚠️ ${args.map(String).join(' ')}`);
+                    logs.push({
+                        text: `⚠️ ${args.map(String).join(' ')}`,
+                        timestamp: new Date().toLocaleTimeString()
+                    });
                 },
                 error: (...args: any[]) => {
-                    logs.push(`❌ ${args.map(String).join(' ')}`);
+                    logs.push({
+                        text: `❌ ${args.map(String).join(' ')}`,
+                        timestamp: new Date().toLocaleTimeString()
+                    });
                 }
             };
 
@@ -45,8 +59,11 @@ const CodeRunner: React.FC<CodeRunnerProps> = ({
             runUserCode(customConsole);
 
             setOutput(logs);
+            onSuccess?.();
         } catch (err) {
-            setError(err instanceof Error ? err.message : String(err));
+            const errorMessage = err instanceof Error ? err.message : String(err);
+            setError(errorMessage);
+            onError?.();
         } finally {
             setIsRunning(false);
         }
@@ -79,23 +96,28 @@ const CodeRunner: React.FC<CodeRunnerProps> = ({
                     Console Output
                 </h2>
                 <div className="flex space-x-2 w-full sm:w-auto justify-center sm:justify-end">
-                    <Button
-                        variant="default"
-                        size="sm"
-                        onClick={runCode}
-                        disabled={isRunning}
-                        className="flex items-center"
-                    >
-                        {isRunning ? 'Running...' : 'Run'}
-                    </Button>
-                    <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={clearOutput}
-                        className="flex items-center"
-                    >
-                        Clear
-                    </Button>
+                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                        <Button
+                            variant="default"
+                            size="sm"
+                            onClick={runCode}
+                            disabled={isRunning}
+                            className="flex items-center transition-all duration-300 hover:bg-opacity-80"
+                            style={{ backgroundColor: currentTheme.accent }}
+                        >
+                            {isRunning ? 'Running...' : 'Run'}
+                        </Button>
+                    </motion.div>
+                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                        <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={clearOutput}
+                            className="flex items-center transition-all duration-300 hover:bg-opacity-80"
+                        >
+                            Clear
+                        </Button>
+                    </motion.div>
                 </div>
             </div>
 
@@ -107,27 +129,39 @@ const CodeRunner: React.FC<CodeRunnerProps> = ({
                 }}
             >
                 {error ? (
-                    <div className="text-red-400">
+                    <motion.div
+                        className="text-red-400"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                    >
                         <pre className="break-words whitespace-pre-wrap">
                             {error}
                         </pre>
-                    </div>
+                    </motion.div>
                 ) : output.length === 0 ? (
-                    <div
+                    <motion.div
                         className="text-gray-500 text-center py-4"
                         style={{ color: currentTheme.text }}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.3 }}
                     >
                         Run code to see output
-                    </div>
+                    </motion.div>
                 ) : (
                     output.map((line, index) => (
-                        <div
+                        <motion.div
                             key={index}
-                            className="text-green-400 break-words"
+                            className="text-green-400 break-words flex justify-between"
                             style={{ color: currentTheme.syntaxColors.function }}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ duration: 0.3, delay: index * 0.05 }}
                         >
-                            {line}
-                        </div>
+                            <span>{line.text}</span>
+                            <span className="text-gray-500 text-xs">{line.timestamp}</span>
+                        </motion.div>
                     ))
                 )}
             </div>

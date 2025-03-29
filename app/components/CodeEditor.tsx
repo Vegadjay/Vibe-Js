@@ -1,5 +1,6 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import CodeMirror from '@uiw/react-codemirror';
 import { javascript } from '@codemirror/lang-javascript';
 import { vscodeDark, vscodeLight } from '@uiw/codemirror-theme-vscode';
@@ -8,28 +9,36 @@ import { nord } from '@uiw/codemirror-theme-nord';
 import { monokai } from '@uiw/codemirror-theme-monokai';
 import { solarizedDark, solarizedLight } from '@uiw/codemirror-theme-solarized';
 import { lineNumbers } from '@codemirror/view';
+import { EditorView } from '@codemirror/view';
 import { Button } from '@/components/ui/button';
 import THEMES from './Themes';
+import { Scissors } from 'lucide-react';
 
 interface CodeEditorProps {
     initialCode?: string;
     onCodeChange?: (code: string) => void;
     theme?: keyof typeof THEMES;
+    fontFamily?: string;
+    onKeyPress?: (key: string) => void;
 }
 
 const CodeEditor: React.FC<CodeEditorProps> = ({
     initialCode = '// Write your JavaScript code here',
     onCodeChange,
-    theme = 'dark'
+    theme = 'dark',
+    fontFamily = 'JetBrains Mono',
+    onKeyPress
 }) => {
     const [code, setCode] = useState(initialCode);
+    const fontSizeRef = useRef<number>(16);
     const [fontSize, setFontSize] = useState(16);
     const [isMobile, setIsMobile] = useState(false);
+    const editorRef = useRef<HTMLDivElement>(null);
+    const editorInstanceRef = useRef<any>(null);
 
     const currentTheme = THEMES[theme];
 
-    // Map CodeMirror themes dynamically
-    const getCodeMirrorTheme = () => {
+    const codeMirrorTheme = useMemo(() => {
         switch (currentTheme.codeMirrorTheme) {
             case 'light': return vscodeLight;
             case 'dracula': return dracula;
@@ -38,104 +47,212 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             case 'solarized': return solarizedDark;
             default: return vscodeDark;
         }
-    };
+    }, [currentTheme.codeMirrorTheme]);
+
+    const cursorStyle = useMemo(() => [
+        EditorView.theme({
+            '.cm-cursor': {
+                borderLeftWidth: '3px',
+                borderLeftStyle: 'solid',
+                borderLeftColor: currentTheme.cursorColor,
+                opacity: '1 !important',
+            },
+            '.cm-cursor-primary': {
+                borderLeftWidth: '3px',
+                borderLeftColor: currentTheme.cursorColor,
+            }
+        })
+    ], [currentTheme.cursorColor]);
+
+    const editorExtensions = useMemo(() => [
+        javascript({ jsx: true }),
+        lineNumbers(),
+        cursorStyle
+    ], [cursorStyle]);
+
+    const editorStyle = useMemo(() => ({
+        fontSize: `${fontSize}px`,
+        lineHeight: '1.6',
+        backgroundColor: currentTheme.editorBackground,
+        height: '100%',
+        overflow: 'auto',
+        fontFamily: `'${fontFamily}', monospace`
+    } as React.CSSProperties), [fontSize, currentTheme.editorBackground, fontFamily]);
 
     useEffect(() => {
+        const savedFontSize = localStorage.getItem('editor-font-size');
+        if (savedFontSize) {
+            const parsedSize = parseInt(savedFontSize, 10);
+            setFontSize(parsedSize);
+            fontSizeRef.current = parsedSize;
+        }
+
         const checkMobile = () => {
             const isMobileScreen = window.innerWidth <= 768;
             setIsMobile(isMobileScreen);
-            setFontSize(isMobileScreen ? 14 : 16);
+            if (!savedFontSize) {
+                const defaultSize = isMobileScreen ? 14 : 16;
+                setFontSize(defaultSize);
+                fontSizeRef.current = defaultSize;
+            }
         };
 
         checkMobile();
         window.addEventListener('resize', checkMobile);
-        return () => window.removeEventListener('resize', checkMobile);
-    }, []);
+
+        const handleEditorKeyPress = (event: KeyboardEvent) => {
+            if (onKeyPress) {
+                if (event.key.length > 1) {
+                    onKeyPress(event.key);
+                } else {
+                    onKeyPress(event.key);
+                }
+            }
+        };
+
+        if (editorRef.current) {
+            editorRef.current.addEventListener('keydown', handleEditorKeyPress);
+        }
+
+        return () => {
+            window.removeEventListener('resize', checkMobile);
+            if (editorRef.current) {
+                editorRef.current.removeEventListener('keydown', handleEditorKeyPress);
+            }
+        };
+    }, [onKeyPress]);
 
     const handleCodeChange = (value: string) => {
         setCode(value);
         onCodeChange?.(value);
     };
 
+    const updateFontSize = (newSize: number) => {
+        setFontSize(newSize);
+        fontSizeRef.current = newSize;
+        localStorage.setItem('editor-font-size', newSize.toString());
+    };
+
     const zoomIn = () => {
-        setFontSize(prevSize => {
-            if (isMobile) {
-                return Math.min(prevSize + 2, 32);
-            }
-            return Math.min(prevSize + 2, 40);
-        });
+        const newSize = Math.min(fontSizeRef.current + 2, isMobile ? 32 : 40);
+        updateFontSize(newSize);
     };
 
     const zoomOut = () => {
-        setFontSize(prevSize => {
-            if (isMobile) {
-                return Math.max(prevSize - 2, 10);
-            }
-            return Math.max(prevSize - 2, 12);
-        });
+        const newSize = Math.max(fontSizeRef.current - 2, isMobile ? 10 : 12);
+        updateFontSize(newSize);
     };
 
+    const formatCode = () => {
+        try {
+            const formatted = code
+                .split('\n')
+                .map(line => line.trim())
+                .filter(line => line.length > 0)
+                .join('\n');
+            setCode(formatted);
+            onCodeChange?.(formatted);
+        } catch (err) {
+            console.error('Formatting failed:', err);
+        }
+    };
+
+    const editorCreateRef = (editor: any) => {
+        if (editor) {
+            editorInstanceRef.current = editor;
+        }
+    };
+
+    const wordCount = code.split(/\s+/).filter(Boolean).length;
+    const charCount = code.length;
+
     return (
-        <div
+        <motion.div
+            ref={editorRef}
             className="relative w-full h-full flex flex-col"
             style={{
                 backgroundColor: currentTheme.editorBackground,
                 color: currentTheme.text
             }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
         >
             <div
-                className="sticky top-0 z-50 flex justify-between items-center p-2 sm:p-3 border-b border-gray-700"
+                className="sticky top-0 z-50 flex justify-between items-center p-2 sm:p-3 border-b border-gray-700 flex-wrap gap-2"
                 style={{ backgroundColor: currentTheme.editorBackground }}
             >
                 <div className="flex items-center space-x-2">
-                    <div className="text-xs sm:text-sm text-gray-400 mr-2">
+                    <motion.div
+                        className="text-xs sm:text-sm text-gray-400 mr-2"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.3 }}
+                    >
                         Font: {fontSize}px
-                    </div>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={zoomOut}
-                        title="Zoom Out"
-                    >
-                        -
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={zoomIn}
-                        title="Zoom In"
-                    >
-                        +
-                    </Button>
+                    </motion.div>
+                    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={zoomOut}
+                            title="Zoom Out"
+                            className="hover:bg-gray-700 rounded-full transition-all duration-300"
+                        >
+                            -
+                        </Button>
+                    </motion.div>
+                    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={zoomIn}
+                            title="Zoom In"
+                            className="hover:bg-gray-700 rounded-full transition-all duration-300"
+                        >
+                            +
+                        </Button>
+                    </motion.div>
+                    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={formatCode}
+                            title="Format Code"
+                            className="hover:bg-gray-700 rounded-full transition-all duration-300"
+                        >
+                            <Scissors size={16} />
+                        </Button>
+                    </motion.div>
                 </div>
+                <motion.div
+                    className="text-xs sm:text-sm text-gray-400"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3 }}
+                >
+                    Words: {wordCount} | Chars: {charCount}
+                </motion.div>
             </div>
 
             <div className="flex-grow overflow-auto">
                 <CodeMirror
                     value={code}
                     height="100%"
-                    theme={getCodeMirrorTheme()}
-                    extensions={[
-                        javascript({ jsx: true }),
-                        lineNumbers()
-                    ]}
+                    theme={codeMirrorTheme}
+                    extensions={editorExtensions}
                     onChange={handleCodeChange}
-                    style={{
-                        fontSize: `${fontSize}px`,
-                        lineHeight: '1.6',
-                        backgroundColor: currentTheme.editorBackground,
-                        height: '100%',
-                        overflow: 'auto',
-                    } as React.CSSProperties}
+                    style={editorStyle}
                     data-custom-styles={{
                         '--keyword-color': currentTheme.syntaxColors.keyword,
                         '--string-color': currentTheme.syntaxColors.string,
                         '--function-color': currentTheme.syntaxColors.function,
                         '--comment-color': currentTheme.syntaxColors.comment
                     }}
+                    ref={editorCreateRef}
                 />
             </div>
-        </div>
+        </motion.div>
     );
 };
 
