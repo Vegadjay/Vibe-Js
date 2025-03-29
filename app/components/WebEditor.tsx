@@ -423,7 +423,7 @@ const WebEditorPage = () => {
                     <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
                         <FileCode className="w-6 h-6 sm:w-8 sm:h-8" color={activeTheme.accent} />
                     </motion.div>
-                    <h1 className="text-lg sm:text-2xl font-bold">JS Learning Editor</h1>
+                    <h1 className="text-lg sm:text-2xl font-bold">Learning With Vibe</h1>
                     {soundEnabled && (
                         <motion.span
                             className="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded-full"
