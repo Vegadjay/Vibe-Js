@@ -7,7 +7,7 @@ import { vscodeDark, vscodeLight } from '@uiw/codemirror-theme-vscode';
 import { dracula } from '@uiw/codemirror-theme-dracula';
 import { nord } from '@uiw/codemirror-theme-nord';
 import { monokai } from '@uiw/codemirror-theme-monokai';
-import { solarizedDark, solarizedLight } from '@uiw/codemirror-theme-solarized';
+import { solarizedDark } from '@uiw/codemirror-theme-solarized';
 import { lineNumbers } from '@codemirror/view';
 import { EditorView } from '@codemirror/view';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,13 @@ interface CodeEditorProps {
     onKeyPress?: (key: string) => void;
 }
 
+// Define types for editor instance
+interface EditorInstance {
+    view?: unknown;
+    state?: unknown;
+    container?: HTMLElement;
+}
+
 const CodeEditor: React.FC<CodeEditorProps> = ({
     initialCode = '// Write your JavaScript code here',
     onCodeChange,
@@ -34,7 +41,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     const [fontSize, setFontSize] = useState(16);
     const [isMobile, setIsMobile] = useState(false);
     const editorRef = useRef<HTMLDivElement>(null);
-    const editorInstanceRef = useRef<any>(null);
+    const editorInstanceRef = useRef<EditorInstance | null>(null);
 
     const currentTheme = THEMES[theme];
 
@@ -110,14 +117,17 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             }
         };
 
-        if (editorRef.current) {
-            editorRef.current.addEventListener('keydown', handleEditorKeyPress);
+        // Store reference to current editor element
+        const currentEditorRef = editorRef.current;
+
+        if (currentEditorRef) {
+            currentEditorRef.addEventListener('keydown', handleEditorKeyPress);
         }
 
         return () => {
             window.removeEventListener('resize', checkMobile);
-            if (editorRef.current) {
-                editorRef.current.removeEventListener('keydown', handleEditorKeyPress);
+            if (currentEditorRef) {
+                currentEditorRef.removeEventListener('keydown', handleEditorKeyPress);
             }
         };
     }, [onKeyPress]);
@@ -157,7 +167,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         }
     };
 
-    const editorCreateRef = (editor: any) => {
+    const editorCreateRef = (editor: EditorInstance | null) => {
         if (editor) {
             editorInstanceRef.current = editor;
         }

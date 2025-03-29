@@ -12,6 +12,9 @@ interface CodeRunnerProps {
     onSuccess?: () => void;
 }
 
+// Define proper types for console arguments
+type ConsoleArgument = string | number | boolean | object | null | undefined;
+
 const CodeRunner: React.FC<CodeRunnerProps> = ({
     code,
     theme = 'dark',
@@ -35,19 +38,19 @@ const CodeRunner: React.FC<CodeRunnerProps> = ({
 
             const logs: { text: string; timestamp: string }[] = [];
             const customConsole = {
-                log: (...args: any[]) => {
+                log: (...args: ConsoleArgument[]) => {
                     logs.push({
                         text: args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' '),
                         timestamp: new Date().toLocaleTimeString()
                     });
                 },
-                warn: (...args: any[]) => {
+                warn: (...args: ConsoleArgument[]) => {
                     logs.push({
                         text: `⚠️ ${args.map(String).join(' ')}`,
                         timestamp: new Date().toLocaleTimeString()
                     });
                 },
-                error: (...args: any[]) => {
+                error: (...args: ConsoleArgument[]) => {
                     logs.push({
                         text: `❌ ${args.map(String).join(' ')}`,
                         timestamp: new Date().toLocaleTimeString()

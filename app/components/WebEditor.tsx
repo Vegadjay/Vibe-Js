@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
     FileCode,
     Save,
@@ -9,20 +9,11 @@ import {
     RotateCcw,
     Volume2,
     VolumeX,
-    Type,
     Maximize2,
     Minimize2,
-    Scissors,
     Palette // New icon for theme switching
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-    DropdownMenuLabel
-} from '@/components/ui/dropdown-menu';
 import THEMES from './Themes';
 
 const CodeEditor = dynamic(() => import('./CodeEditor'), { ssr: false });
@@ -217,7 +208,6 @@ const WebEditorPage = () => {
     const [currentTheme, setCurrentTheme] = useState('dark');
     const [soundEnabled, setSoundEnabled] = useState(true);
     const [currentFont, setCurrentFont] = useState(AVAILABLE_FONTS[0]);
-    const [fontsLoaded, setFontsLoaded] = useState(false);
     const [lastKeyPressed, setLastKeyPressed] = useState('');
     const [soundLoaded, setSoundLoaded] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
@@ -253,7 +243,7 @@ const WebEditorPage = () => {
                 );
                 setFontsLoaded(true);
             } catch (error) {
-                console.error('Failed to load fonts:', error);
+                console.log('Failed to load fonts:', error);
             }
         };
 
