@@ -11,7 +11,9 @@ import {
     VolumeX,
     Maximize2,
     Minimize2,
-    Palette // New icon for theme switching
+    Palette,
+    Menu,
+    X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import THEMES from './Themes';
@@ -217,6 +219,9 @@ const WebEditorPage = () => {
     const [lastKeyPressed, setLastKeyPressed] = useState('');
     const [fontsLoaded, setFontsLoaded] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [isMobileView, setIsMobileView] = useState(false);
+    const [showEditor, setShowEditor] = useState(true);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const soundEnabledRef = useRef(soundEnabled);
 
     // List of theme keys for cycling
@@ -230,7 +235,19 @@ const WebEditorPage = () => {
         const autoSave = setInterval(() => {
             localStorage.setItem('savedCode', code);
         }, 30000);
-        return () => clearInterval(autoSave);
+
+        const handleResize = () => {
+            setIsMobileView(window.innerWidth < 768);
+        };
+
+        // Initial check and event listener
+        handleResize();
+        window.addEventListener('resize', handleResize);
+
+        return () => {
+            clearInterval(autoSave);
+            window.removeEventListener('resize', handleResize);
+        };
     }, [code]);
 
     useEffect(() => {
@@ -273,7 +290,6 @@ const WebEditorPage = () => {
 
         const initAudio = async () => {
             try {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
                 const response = await fetch('/static/sound/brown_cherry/sound.ogg');
                 const arrayBuffer = await response.arrayBuffer();
@@ -388,6 +404,16 @@ const WebEditorPage = () => {
         playSound('theme');
     }, [isFullscreen, playSound]);
 
+    const toggleView = useCallback(() => {
+        setShowEditor(!showEditor);
+        playSound('keypress');
+    }, [showEditor, playSound]);
+
+    const toggleMobileMenu = useCallback(() => {
+        setMobileMenuOpen(!mobileMenuOpen);
+        playSound('keypress');
+    }, [mobileMenuOpen, playSound]);
+
     const handleCodeChange = useCallback((newCode: string) => {
         if (newCode.length > code.length) {
             const addedChar = newCode.charAt(code.length);
@@ -419,14 +445,14 @@ const WebEditorPage = () => {
                 animate={{ y: 0 }}
                 transition={{ duration: 0.3 }}
             >
-                <div className="flex items-center space-x-2 sm:space-x-4">
+                <div className="flex items-center space-x-2">
                     <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                        <FileCode className="w-6 h-6 sm:w-8 sm:h-8" color={activeTheme.accent} />
+                        <FileCode className="w-6 h-6" color={activeTheme.accent} />
                     </motion.div>
-                    <h1 className="text-lg sm:text-2xl font-bold">Learning With Vibe</h1>
-                    {soundEnabled && (
+                    <h1 className="text-lg font-bold truncate">Learning With Vibe</h1>
+                    {soundEnabled && !isMobileView && (
                         <motion.span
-                            className="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded-full"
+                            className="hidden md:inline-block text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded-full"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ delay: 0.2 }}
@@ -434,26 +460,30 @@ const WebEditorPage = () => {
                             Cherry MX Brown
                         </motion.span>
                     )}
-                    {soundEnabled && lastKeyPressed && (
-                        <motion.small
-                            className="text-xs text-gray-500"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ delay: 0.3 }}
-                        >
-                            Last key: {lastKeyPressed}
-                        </motion.small>
-                    )}
                 </div>
 
-                <div className="flex items-center space-x-2">
-                    {/* Theme Switcher Button */}
+                {/* Mobile Menu Button */}
+                {isMobileView && (
+                    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={toggleMobileMenu}
+                            className="md:hidden"
+                        >
+                            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+                        </Button>
+                    </motion.div>
+                )}
+
+                {/* Desktop Controls */}
+                <div className={`items-center space-x-2 ${isMobileView ? 'hidden' : 'flex'}`}>
                     <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                         <Button
                             variant="outline"
                             size="sm"
                             onClick={cycleTheme}
-                            className="mr-2 transition-all duration-300 hover:bg-opacity-80 flex items-center gap-2"
+                            className="transition-all duration-300 hover:bg-opacity-80 flex items-center gap-2"
                             style={{
                                 backgroundColor: activeTheme.accent,
                                 color: activeTheme.text,
@@ -461,7 +491,7 @@ const WebEditorPage = () => {
                             }}
                         >
                             <Palette size={16} />
-                            {activeTheme.name}
+                            <span className="hidden sm:inline">{activeTheme.name}</span>
                         </Button>
                     </motion.div>
 
@@ -527,41 +557,146 @@ const WebEditorPage = () => {
                 </div>
             </motion.header>
 
+            {/* Mobile Menu Dropdown */}
+            {isMobileView && mobileMenuOpen && (
+                <motion.div
+                    className="bg-gray-800 p-4 space-y-3"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                >
+                    <div className="flex justify-between items-center">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={cycleTheme}
+                            className="w-full transition-all duration-300 hover:bg-opacity-80 flex items-center justify-center gap-2"
+                            style={{
+                                backgroundColor: activeTheme.accent,
+                                color: activeTheme.text,
+                                border: `1px solid ${activeTheme.accent}`
+                            }}
+                        >
+                            <Palette size={16} />
+                            {activeTheme.name}
+                        </Button>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-2">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={toggleSound}
+                            className="flex flex-col items-center justify-center p-2 h-16"
+                        >
+                            {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
+                            <span className="text-xs mt-1">{soundEnabled ? 'Sound On' : 'Sound Off'}</span>
+                        </Button>
+
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={resetCode}
+                            className="flex flex-col items-center justify-center p-2 h-16"
+                        >
+                            <RotateCcw size={20} />
+                            <span className="text-xs mt-1">Reset</span>
+                        </Button>
+
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={saveCodeToLocalStorage}
+                            className="flex flex-col items-center justify-center p-2 h-16"
+                        >
+                            <Save size={20} />
+                            <span className="text-xs mt-1">Save</span>
+                        </Button>
+
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={downloadCode}
+                            className="flex flex-col items-center justify-center p-2 h-16"
+                        >
+                            <Download size={20} />
+                            <span className="text-xs mt-1">Download</span>
+                        </Button>
+                    </div>
+
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={toggleView}
+                        className="w-full"
+                    >
+                        {showEditor ? 'Show Output' : 'Show Editor'}
+                    </Button>
+                </motion.div>
+            )}
+
             <motion.div
-                className="flex-grow overflow-hidden flex"
+                className="flex-grow overflow-hidden flex flex-col md:flex-row"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.5, delay: 0.2 }}
             >
-                <div className={isFullscreen ? 'w-full h-full' : 'w-1/2 h-full'}>
-                    <CodeEditor
-                        initialCode={code}
-                        onCodeChange={handleCodeChange}
-                        theme={currentTheme}
-                        fontFamily={currentFont.family}
-                        onKeyPress={playKeySound}
-                    />
-                </div>
-                {!isFullscreen && (
-                    <div className="w-1/2 h-full border-l border-gray-700">
-                        <CodeRunner
-                            code={code}
-                            theme={currentTheme}
-                            onRun={runCode}
-                            onError={() => playSound('error')}
-                            onSuccess={() => playSound('success')}
-                        />
+                {/* Mobile view with tabs */}
+                {isMobileView && !isFullscreen ? (
+                    <div className="w-full h-full">
+                        {showEditor ? (
+                            <CodeEditor
+                                initialCode={code}
+                                onCodeChange={handleCodeChange}
+                                theme={currentTheme}
+                                fontFamily={currentFont.family}
+                                onKeyPress={playKeySound}
+                            />
+                        ) : (
+                            <CodeRunner
+                                code={code}
+                                theme={currentTheme}
+                                onRun={runCode}
+                                onError={() => playSound('error')}
+                                onSuccess={() => playSound('success')}
+                            />
+                        )}
                     </div>
+                ) : (
+                    <>
+                        {/* Desktop or fullscreen view */}
+                        <div className={isFullscreen ? 'w-full h-full' : 'w-full md:w-1/2 h-full'}>
+                            <CodeEditor
+                                initialCode={code}
+                                onCodeChange={handleCodeChange}
+                                theme={currentTheme}
+                                fontFamily={currentFont.family}
+                                onKeyPress={playKeySound}
+                            />
+                        </div>
+                        {!isFullscreen && (
+                            <div className="w-full md:w-1/2 h-full border-t md:border-t-0 md:border-l border-gray-700">
+                                <CodeRunner
+                                    code={code}
+                                    theme={currentTheme}
+                                    onRun={runCode}
+                                    onError={() => playSound('error')}
+                                    onSuccess={() => playSound('success')}
+                                />
+                            </div>
+                        )}
+                    </>
                 )}
             </motion.div>
 
             {fontsLoaded && (
-                <div className="absolute bottom-4 left-4 flex gap-2 opacity-60 hover:opacity-100 transition-opacity">
+                <div className="fixed bottom-4 left-0 right-0 flex justify-center md:justify-start md:left-4 gap-1 md:gap-2 opacity-60 hover:opacity-100 transition-opacity overflow-x-auto px-2">
                     {AVAILABLE_FONTS.map(font => (
                         <button
                             key={font.name}
                             onClick={() => changeFont(font)}
-                            className={`px-2 py-1 text-xs rounded ${currentFont.name === font.name ? 'bg-blue-600' : 'bg-gray-700'}`}
+                            className={`px-1 md:px-2 py-1 text-xs rounded whitespace-nowrap ${currentFont.name === font.name ? 'bg-blue-600' : 'bg-gray-700'}`}
                             style={{ fontFamily: font.family }}
                         >
                             {font.name}

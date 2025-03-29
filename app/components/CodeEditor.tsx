@@ -12,7 +12,7 @@ import { lineNumbers } from '@codemirror/view';
 import { EditorView } from '@codemirror/view';
 import { Button } from '@/components/ui/button';
 import THEMES from './Themes';
-import { Scissors } from 'lucide-react';
+import { Scissors, ZoomIn, ZoomOut } from 'lucide-react';
 
 interface CodeEditorProps {
     initialCode?: string;
@@ -20,6 +20,7 @@ interface CodeEditorProps {
     theme?: keyof typeof THEMES;
     fontFamily?: string;
     onKeyPress?: (key: string) => void;
+    className?: string;
 }
 
 // Define types for editor instance
@@ -34,12 +35,14 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     onCodeChange,
     theme = 'dark',
     fontFamily = 'JetBrains Mono',
-    onKeyPress
+    onKeyPress,
+    className = ''
 }) => {
     const [code, setCode] = useState(initialCode);
     const fontSizeRef = useRef<number>(16);
     const [fontSize, setFontSize] = useState(16);
     const [isMobile, setIsMobile] = useState(false);
+    const [showButtons, setShowButtons] = useState(true);
     const editorRef = useRef<HTMLDivElement>(null);
     const editorInstanceRef = useRef<EditorInstance | null>(null);
 
@@ -95,8 +98,13 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         }
 
         const checkMobile = () => {
-            const isMobileScreen = window.innerWidth <= 768;
+            const width = window.innerWidth;
+            const isMobileScreen = width <= 768;
             setIsMobile(isMobileScreen);
+
+            // On very small screens, hide buttons
+            setShowButtons(width > 375);
+
             if (!savedFontSize) {
                 const defaultSize = isMobileScreen ? 14 : 16;
                 setFontSize(defaultSize);
@@ -179,7 +187,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     return (
         <motion.div
             ref={editorRef}
-            className="relative w-full h-full flex flex-col"
+            className={`relative w-full h-full flex flex-col ${className}`}
             style={{
                 backgroundColor: currentTheme.editorBackground,
                 color: currentTheme.text
@@ -189,54 +197,58 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             transition={{ duration: 0.5 }}
         >
             <div
-                className="sticky top-0 z-50 flex justify-between items-center p-2 sm:p-3 border-b border-gray-700 flex-wrap gap-2"
+                className="sticky top-0 z-50 flex flex-col sm:flex-row justify-between items-center p-2 sm:p-3 border-b border-gray-700 gap-2"
                 style={{ backgroundColor: currentTheme.editorBackground }}
             >
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1 sm:space-x-2 w-full sm:w-auto justify-center sm:justify-start">
                     <motion.div
-                        className="text-xs sm:text-sm text-gray-400 mr-2"
+                        className="text-xs sm:text-sm text-gray-400 mr-1"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ duration: 0.3 }}
                     >
                         Font: {fontSize}px
                     </motion.div>
-                    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={zoomOut}
-                            title="Zoom Out"
-                            className="hover:bg-gray-700 rounded-full transition-all duration-300"
-                        >
-                            -
-                        </Button>
-                    </motion.div>
-                    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={zoomIn}
-                            title="Zoom In"
-                            className="hover:bg-gray-700 rounded-full transition-all duration-300"
-                        >
-                            +
-                        </Button>
-                    </motion.div>
-                    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={formatCode}
-                            title="Format Code"
-                            className="hover:bg-gray-700 rounded-full transition-all duration-300"
-                        >
-                            <Scissors size={16} />
-                        </Button>
-                    </motion.div>
+                    {showButtons && (
+                        <>
+                            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                                <Button
+                                    variant="ghost"
+                                    size={isMobile ? "sm" : "icon"}
+                                    onClick={zoomOut}
+                                    title="Zoom Out"
+                                    className="hover:bg-gray-700 rounded-full transition-all duration-300"
+                                >
+                                    {isMobile ? "-" : <ZoomOut size={isMobile ? 14 : 16} />}
+                                </Button>
+                            </motion.div>
+                            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                                <Button
+                                    variant="ghost"
+                                    size={isMobile ? "sm" : "icon"}
+                                    onClick={zoomIn}
+                                    title="Zoom In"
+                                    className="hover:bg-gray-700 rounded-full transition-all duration-300"
+                                >
+                                    {isMobile ? "+" : <ZoomIn size={isMobile ? 14 : 16} />}
+                                </Button>
+                            </motion.div>
+                            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                                <Button
+                                    variant="ghost"
+                                    size={isMobile ? "sm" : "icon"}
+                                    onClick={formatCode}
+                                    title="Format Code"
+                                    className="hover:bg-gray-700 rounded-full transition-all duration-300"
+                                >
+                                    <Scissors size={isMobile ? 14 : 16} />
+                                </Button>
+                            </motion.div>
+                        </>
+                    )}
                 </div>
                 <motion.div
-                    className="text-xs sm:text-sm text-gray-400"
+                    className="text-xs sm:text-sm text-gray-400 w-full sm:w-auto text-center sm:text-right"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.3 }}
