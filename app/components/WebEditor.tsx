@@ -194,7 +194,13 @@ const SOUND_EFFECTS = {
 let audioContext: AudioContext | null = null;
 let soundBuffer: AudioBuffer | null = null;
 
-const AVAILABLE_FONTS = [
+interface Font {
+    name: string;
+    path: string;
+    family: string;
+}
+
+const AVAILABLE_FONTS: Font[] = [
     { name: 'JetBrainsMono', path: '/fonts/JetBrainsMono-Regular.woff2', family: 'JetBrains Mono' },
     { name: 'FiraCode', path: '/fonts/FiraCode-Regular.woff2', family: 'Fira Code' },
     { name: 'SourceCodePro', path: '/fonts/SourceCodePro-Regular.woff2', family: 'Source Code Pro' },
@@ -209,7 +215,7 @@ const WebEditorPage = () => {
     const [soundEnabled, setSoundEnabled] = useState(true);
     const [currentFont, setCurrentFont] = useState(AVAILABLE_FONTS[0]);
     const [lastKeyPressed, setLastKeyPressed] = useState('');
-    const [soundLoaded, setSoundLoaded] = useState(false);
+    const [fontsLoaded, setFontsLoaded] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const soundEnabledRef = useRef(soundEnabled);
 
@@ -267,11 +273,11 @@ const WebEditorPage = () => {
 
         const initAudio = async () => {
             try {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
                 const response = await fetch('/static/sound/brown_cherry/sound.ogg');
                 const arrayBuffer = await response.arrayBuffer();
                 soundBuffer = await audioContext.decodeAudioData(arrayBuffer);
-                setSoundLoaded(true);
                 console.log('Cherry MX Brown sound pack loaded successfully');
             } catch (error) {
                 console.error('Failed to load sound pack:', error);
@@ -284,7 +290,7 @@ const WebEditorPage = () => {
         };
     }, []);
 
-    const playCherry = (startTime: number, duration: number) => {
+    const playCherry = useCallback((startTime: number, duration: number) => {
         if (!soundEnabledRef.current || !audioContext || !soundBuffer) return;
         try {
             const source = audioContext.createBufferSource();
@@ -299,9 +305,9 @@ const WebEditorPage = () => {
         } catch (err) {
             console.error("Error playing Cherry MX Brown sound:", err);
         }
-    };
+    }, []);
 
-    const playSound = (soundName: keyof typeof SOUND_EFFECTS) => {
+    const playSound = useCallback((soundName: keyof typeof SOUND_EFFECTS) => {
         if (!soundEnabledRef.current || !soundBuffer) return;
         try {
             const [startTime, duration] = SOUND_EFFECTS[soundName] || SOUND_EFFECTS.default;
@@ -309,9 +315,9 @@ const WebEditorPage = () => {
         } catch (err) {
             console.error("Error playing sound effect:", err);
         }
-    };
+    }, [playCherry]);
 
-    const playKeySound = (key: string) => {
+    const playKeySound = useCallback((key: string) => {
         if (!soundEnabledRef.current || !soundBuffer) return;
         try {
             const normalizedKey = typeof key === 'string' && key.length === 1 ? key.toLowerCase() : key;
@@ -325,7 +331,7 @@ const WebEditorPage = () => {
         } catch (err) {
             console.error("Error playing key sound:", err);
         }
-    };
+    }, [playCherry]);
 
     const saveCodeToLocalStorage = useCallback(() => {
         try {
@@ -336,7 +342,7 @@ const WebEditorPage = () => {
             console.error('Failed to save code', error);
             playSound('error');
         }
-    }, [code]);
+    }, [code, playSound]);
 
     const downloadCode = useCallback(() => {
         const blob = new Blob([code], { type: 'text/javascript' });
@@ -345,44 +351,44 @@ const WebEditorPage = () => {
         link.download = 'code_export.js';
         playSound('save');
         link.click();
-    }, [code]);
+    }, [code, playSound]);
 
-    const cycleTheme = () => {
+    const cycleTheme = useCallback(() => {
         const currentIndex = themeKeys.indexOf(currentTheme);
         const nextIndex = (currentIndex + 1) % themeKeys.length;
         const newTheme = themeKeys[nextIndex];
         setCurrentTheme(newTheme);
         playSound('theme');
-    };
+    }, [currentTheme, playSound, themeKeys]);
 
-    const resetCode = () => {
+    const resetCode = useCallback(() => {
         setCode(DEFAULT_CODE);
         playSound('clear');
-    };
+    }, [playSound]);
 
-    const toggleSound = () => {
+    const toggleSound = useCallback(() => {
         const newSoundEnabled = !soundEnabled;
         setSoundEnabled(newSoundEnabled);
         soundEnabledRef.current = newSoundEnabled;
         localStorage.setItem('sound-enabled', newSoundEnabled.toString());
-    };
+    }, [soundEnabled]);
 
-    const changeFont = (font: any) => {
+    const changeFont = useCallback((font: Font) => {
         setCurrentFont(font);
         localStorage.setItem('editor-font', font.name);
         playSound('keypress');
-    };
+    }, [playSound]);
 
-    const runCode = () => {
+    const runCode = useCallback(() => {
         playSound('run');
-    };
+    }, [playSound]);
 
-    const toggleFullscreen = () => {
+    const toggleFullscreen = useCallback(() => {
         setIsFullscreen(!isFullscreen);
         playSound('theme');
-    };
+    }, [isFullscreen, playSound]);
 
-    const handleCodeChange = (newCode: string) => {
+    const handleCodeChange = useCallback((newCode: string) => {
         if (newCode.length > code.length) {
             const addedChar = newCode.charAt(code.length);
             playKeySound(addedChar);
@@ -390,7 +396,7 @@ const WebEditorPage = () => {
             playKeySound('Backspace');
         }
         setCode(newCode);
-    };
+    }, [code, playKeySound]);
 
     const activeTheme = THEMES[currentTheme];
 
@@ -548,6 +554,21 @@ const WebEditorPage = () => {
                     </div>
                 )}
             </motion.div>
+
+            {fontsLoaded && (
+                <div className="absolute bottom-4 left-4 flex gap-2 opacity-60 hover:opacity-100 transition-opacity">
+                    {AVAILABLE_FONTS.map(font => (
+                        <button
+                            key={font.name}
+                            onClick={() => changeFont(font)}
+                            className={`px-2 py-1 text-xs rounded ${currentFont.name === font.name ? 'bg-blue-600' : 'bg-gray-700'}`}
+                            style={{ fontFamily: font.family }}
+                        >
+                            {font.name}
+                        </button>
+                    ))}
+                </div>
+            )}
         </motion.div>
     );
 };
